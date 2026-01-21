@@ -38,28 +38,32 @@ const styles: Record<string, React.CSSProperties> = {
     },
     choiceBtn: {
         width: "100%",
-        height: 100,
-        fontSize: 48,
+        height: "clamp(80px, 20vw, 120px)",
+        fontSize: "clamp(40px, 10vw, 60px)",
         fontWeight: 900,
-        borderRadius: 24,
-        border: "3px solid #e8eaf4",
-        background: "#ffffff",
+        borderRadius: 40, // 젤리빈 모양
+        border: "none",
+        background: "#fff",
+        boxShadow: "0 6px 0 #ced4da, 0 10px 10px rgba(0,0,0,0.05)", // 부드러운 3D
+        transform: "translateY(0)",
+        transition: "all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275)", // 팅~ 하는 느낌의 애니메이션
         cursor: "pointer",
         userSelect: "none",
-        color: "#333",
+        color: "#555",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         padding: 0,
+        marginBottom: 8,
     },
     correct: {
-        border: "3px solid #bfe8c3",
-        background: "#eaf8ec",
-        color: "#2e7d32",
+        background: "#FFF176", // 진한 노랑
+        color: "#F57F17",      // 진한 오렌지 텍스트
+        boxShadow: "0 6px 0 #FBC02D, 0 10px 10px rgba(0,0,0,0.1)",
     },
     wrong: {
-        border: "3px solid #f2c1c1",
-        background: "#fdecec",
-        color: "#c62828",
+        background: "#E57373", // 진한 빨강 (Salmon)
+        color: "#FFFFFF",      // 흰색 텍스트로 변경 (가독성)
+        boxShadow: "0 6px 0 #D32F2F, 0 10px 10px rgba(0,0,0,0.1)",
     },
 };

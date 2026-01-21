@@ -8,47 +8,35 @@ interface MonsterProps {
     monsterType: number;
 }
 
-// 5가지 진화 테마 정의
-const MONSTER_PATHS = [
-    ["🥚", "🦎", "🐊", "🦖", "🐲"], // 공룡/드래곤
-    ["🥚", "🐣", "🐥", "🦉", "🦅"], // 새
-    ["🫧", "🦐", "🐠", "🐬", "🐳"], // 바다
-    ["🍼", "🐕", "🐺", "🐻", "🦁"], // 맹수
-    ["🥚", "🐛", "🐜", "🐞", "🦋"], // 곤충
-];
+import { MONSTER_PATHS, THRESHOLDS, CLEAR_SCORE } from "../constants";
 
 export default function Monster({ phase, selected, answer, stars, monsterType }: MonsterProps) {
-    // 진화 턱걸이 순간인지 확인 (5, 10, 20, 30...)
-    const isLevelUpFrame = [5, 10, 20, 30].includes(stars);
+    // 진화 턱걸이 순간인지 확인
+    const isLevelUpFrame = THRESHOLDS.includes(stars);
     // 정답 결과 화면이면서 + 레벨업 순간이라면 -> 이전 단계 모습을 보여줌
     const showPreviousStage = phase === "result" && selected === answer && isLevelUpFrame;
 
-    // 몬스터 성장 단계 계산
+    // 몬스터 성장 단계 계산 (3단계)
     const { stageIndex, nextThreshold } = useMemo(() => {
-        // 이전 단계를 보여줘야 한다면 별 개수를 하나 줄여서 계산
         const calcStars = showPreviousStage ? stars - 1 : stars;
 
-        if (calcStars < 5) return { stageIndex: 0, nextThreshold: 5 };
-        if (calcStars < 10) return { stageIndex: 1, nextThreshold: 10 };
-        if (calcStars < 20) return { stageIndex: 2, nextThreshold: 20 };
-        if (calcStars < 30) return { stageIndex: 3, nextThreshold: 30 };
-        return { stageIndex: 4, nextThreshold: null };
+        if (calcStars < THRESHOLDS[0]) return { stageIndex: 0, nextThreshold: THRESHOLDS[0] };
+        if (calcStars < THRESHOLDS[1]) return { stageIndex: 1, nextThreshold: THRESHOLDS[1] };
+        return { stageIndex: 2, nextThreshold: CLEAR_SCORE }; // 마지막 단계도 목표(클리어)가 있음
     }, [stars, showPreviousStage]);
 
-    // 선택된 테마와 현재 단계에 맞는 이모지 가져오기 (범위 보호)
+    // 선택된 테마와 현재 단계에 맞는 이모지 가져오기
     const currentPath = MONSTER_PATHS[monsterType % MONSTER_PATHS.length];
     const stage = currentPath[stageIndex];
 
-    // 실제 퍼센트 계산 로직 보정
+    // XP 바 퍼센트 계산
     let percent = 0;
     if (showPreviousStage) {
-        percent = 100; // 레벨업 순간에는 이전 게이지 100%로 표시
+        percent = 100;
     } else {
-        if (stars < 5) percent = (stars / 5) * 100;
-        else if (stars < 10) percent = ((stars - 5) / 5) * 100;
-        else if (stars < 20) percent = ((stars - 10) / 10) * 100;
-        else if (stars < 30) percent = ((stars - 20) / 10) * 100;
-        else percent = 100;
+        if (stars < THRESHOLDS[0]) percent = (stars / THRESHOLDS[0]) * 100;
+        else if (stars < THRESHOLDS[1]) percent = ((stars - THRESHOLDS[0]) / (THRESHOLDS[1] - THRESHOLDS[0])) * 100;
+        else percent = ((stars - THRESHOLDS[1]) / (CLEAR_SCORE - THRESHOLDS[1])) * 100; // 마지막 구간 퍼센트
     }
 
     const monsterFace = useMemo(() => {
@@ -62,17 +50,29 @@ export default function Monster({ phase, selected, answer, stars, monsterType }:
         return <div style={styles.overlayWrong}>❌</div>; // selected !== answer
     }, [phase, selected, answer]);
 
+    // 단계별 크기 조절 (3단계)
+    const scale = useMemo(() => {
+        const scales = [0.6, 1.0, 1.5]; // 0.6배 -> 1.0배 -> 1.5배
+        return scales[stageIndex] || 1;
+    }, [stageIndex]);
+
     return (
         <div style={styles.container}>
             <div style={styles.monsterWrapper}>
-                <div style={styles.monster}>{monsterFace}</div>
+                <div style={{
+                    ...styles.monster,
+                    transform: `scale(${scale})`,
+                    transition: "transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)"
+                }}>
+                    {monsterFace}
+                </div>
                 {feedbackOverlay}
             </div>
 
-            {/* XP Bar */}
+            {/* XP Bar (최종 단계에서는 숨김) */}
             {nextThreshold && (
                 <div style={styles.xpTrack}>
-                    <div style={{ ...styles.xpFill, width: `${percent}%` }} />
+                    <div className="xp-bar-animated" style={{ ...styles.xpFill, width: `${percent}%` }} />
                 </div>
             )}
         </div>
@@ -81,10 +81,11 @@ export default function Monster({ phase, selected, answer, stars, monsterType }:
 
 const styles: Record<string, React.CSSProperties> = {
     container: {
+        width: "100%", // 👈 좌우 꽉 채우기
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        marginBottom: 30,
+        marginBottom: 20, // 간격 대폭 축소 (60 -> 20)
     },
     monsterWrapper: {
         position: "relative", // 오버레이 배치를 위해 relative
@@ -92,16 +93,17 @@ const styles: Record<string, React.CSSProperties> = {
         justifyContent: "center",
         alignItems: "center",
         marginBottom: 10,
+        minHeight: "25vh", // 높이 축소 (30vh -> 25vh)
     },
     monster: {
-        fontSize: "clamp(120px, 40vw, 240px)",
+        fontSize: "clamp(80px, 30vw, 160px)", // 이모지 크기 축소
         lineHeight: 1,
         textAlign: "center",
         userSelect: "none"
     },
     overlayCorrect: {
         position: "absolute",
-        fontSize: "clamp(100px, 30vw, 180px)",
+        fontSize: "clamp(100px, 35vw, 200px)", // 오버레이도 같이 축소
         color: "#4caf50",     // 녹색
         opacity: 0.8,
         pointerEvents: "none", // 클릭 통과
@@ -109,7 +111,7 @@ const styles: Record<string, React.CSSProperties> = {
     },
     overlayWrong: {
         position: "absolute",
-        fontSize: "clamp(100px, 30vw, 180px)",
+        fontSize: "clamp(100px, 35vw, 200px)", // 오버레이도 같이 축소
         color: "#f44336",     // 빨간색
         opacity: 0.8,
         pointerEvents: "none",
@@ -117,16 +119,19 @@ const styles: Record<string, React.CSSProperties> = {
     },
     xpTrack: {
         width: "100%",
-        maxWidth: 300,
-        height: 16,
-        background: "#eee",
-        borderRadius: 8,
+        // maxWidth: 300, // 👈 제거: 모바일에서 꽉 차게
+        height: 24, // 두껍게 (16 -> 24)
+        background: "rgba(0,0,0,0.1)", // 트랙은 어둡게
+        borderRadius: 12, // 둥글게
         overflow: "hidden",
-        marginTop: 20
+        marginTop: 20,
+        border: "3px solid #fff", // 흰색 테두리로 팝하게
+        boxShadow: "0 4px 0 rgba(0,0,0,0.1)", // 그림자
     },
     xpFill: {
         height: "100%",
-        background: "#4caf50",
-        transition: "width 0.3s ease",
+        background: "#00E676", // 기본 밝은 초록
+        borderRadius: 10,
+        transition: "width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)", // 팅~ 하는 느낌의 탄성 애니메이션
     }
 };
